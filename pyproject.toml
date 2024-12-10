@@ -3,8 +3,8 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "paper"
-version = "0.0.1"
+name = "open-namm"
+version = "0.0.2"
 description = "Paper - Pytorch"
 license = "MIT"
 authors = ["Kye Gomez <kye@apac.ai>"]
@@ -26,6 +26,7 @@ python = "^3.10"
 torch = "*"
 loguru = "*"
 pydantic = "*"
+math = "*"
 
 
 [tool.poetry.group.lint.dependencies]
