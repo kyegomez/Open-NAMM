@@ -240,5 +240,200 @@ if __name__ == "__main__":
 ```
 
 
+
+
+### System Architecture
+
+```mermaid
+graph TB
+    subgraph NAMMTransformer
+        Input[Input Tokens] --> Embed[Token + Position Embeddings]
+        Embed --> TB[Transformer Blocks]
+        TB --> Norm[Layer Normalization]
+        Norm --> Output[Output Logits]
+        
+        subgraph TransformerBlock
+            MHA[Multi-Head Attention] --> LN1[LayerNorm]
+            LN1 --> FF[Feed Forward]
+            FF --> LN2[LayerNorm]
+        end
+        
+        subgraph NAMM
+            KV[KV Cache] --> STFT[STFT Analysis]
+            STFT --> EMA[EMA Reduction]
+            EMA --> BAM[Backward Attention Memory]
+            BAM --> TokenSelect[Token Selection]
+            TokenSelect --> UpdatedKV[Updated KV Cache]
+        end
+        
+        MHA <--> NAMM
+    end
+```
+
+### NAMM Component Architecture
+
+```mermaid
+flowchart LR
+    subgraph STFTModule
+        A[Attention Matrix] --> B[Hann Window]
+        B --> C[STFT Computation]
+        C --> D[Magnitude Spectrum]
+        D --> E[Feature Projection]
+    end
+    
+    subgraph BAMModule
+        F[Features] --> G[Positional Encoding]
+        G --> H[Backward Masked Attention]
+        H --> I[Score Projection]
+    end
+    
+    subgraph CacheUpdate
+        J[Token Scores] --> K[Keep Mask]
+        K --> L[Cache Filtering]
+    end
+    
+    STFTModule --> BAMModule
+    BAMModule --> CacheUpdate
+```
+
+## Technical Details
+
+### NAMM Components
+
+1. **Short-Time Fourier Transform (STFT) Analysis**
+   - Processes attention patterns through spectral decomposition
+   - Utilizes Hann window for optimal frequency resolution
+   - Projects spectral features to model dimension
+
+2. **Backward Attention Memory (BAM)**
+   - Counter-causal attention mechanism
+   - Multi-head attention with backward masking
+   - Position-aware token importance scoring
+
+3. **Exponential Moving Average (EMA) Reduction**
+   - Temporal feature compression
+   - Adaptive sequence length handling
+   - Memory-efficient feature propagation
+
+### Mathematical Formulation
+
+The STFT computation for attention values at time t:
+
+$$\omega_t[n] = \sum_{t'=0}^T v[t']w[t-t']\exp(-\frac{n\pi t}{N})$$
+
+Where:
+- $v[t]$ represents attention values
+- $w[t]$ is the Hann window function
+- $N$ is the number of frequency bins
+
+BAM scoring mechanism:
+
+$$s_i = \text{MLP}(\text{Attention}_M(Q_i, K, V))$$
+
+Where $M$ represents the backward mask:
+
+$$M_{ij} = \begin{cases} 
+1 & \text{if } i < j \\
+0 & \text{otherwise}
+\end{cases}$$
+
+## Integration with Transformer
+
+The NAMM module integrates with transformer layers through:
+
+1. **Attention Layer Integration**
+   ```python
+   # Pseudo-code representation
+   class MultiHeadAttention:
+       def forward(x):
+           qkv = self.proj(x)
+           attn = self.compute_attention(qkv)
+           if self.namm:
+               kv_cache = self.namm(attn)
+           return self.output_proj(attn)
+   ```
+
+2. **KV Cache Management**
+   ```mermaid
+   sequenceDiagram
+       participant A as Attention Layer
+       participant N as NAMM Module
+       participant C as KV Cache
+       
+       A->>N: Attention Matrix
+       N->>N: Compute STFT
+       N->>N: BAM Scoring
+       N->>C: Update Cache
+       C->>A: Return Updated KV
+   ```
+
+## Performance Characteristics
+
+The NAMM Transformer demonstrates several key performance characteristics:
+
+1. **Memory Efficiency**
+   - Adaptive token retention based on importance
+   - Dynamic sequence length management
+   - Efficient feature compression
+
+2. **Computational Overhead**
+   - O(n) complexity for STFT computation
+   - O(n²) complexity for BAM scoring
+   - Amortized cost through periodic updates
+
+3. **Model Scalability**
+   - Linear scaling with model dimension
+   - Constant memory overhead per layer
+   - Batch-aware processing
+
+## Implementation Details
+
+### Configuration Parameters
+
+```python
+@dataclass
+class NAMMConfig:
+    update_interval: int = 512  # Update frequency
+    stride_size: int = 32      # STFT stride
+    window_size: int = 128     # Hann window size
+    n_head: int = 4           # BAM attention heads
+    d_model: int = 256        # Model dimension
+    gamma: float = 0.95       # EMA decay factor
+```
+
+### Key Components
+
+1. **Feature Extraction**
+   - STFT-based spectral analysis
+   - Adaptive feature projection
+   - Temporal compression
+
+2. **Memory Management**
+   - Dynamic cache updates
+   - Importance-based filtering
+   - Batch-aware processing
+
+3. **Integration Layer**
+   - Transformer block integration
+   - Attention pattern analysis
+   - Cache synchronization
+
+## Future Directions
+
+1. **Architectural Extensions**
+   - Multi-scale feature analysis
+   - Adaptive update intervals
+   - Hierarchical importance scoring
+
+2. **Performance Optimizations**
+   - Efficient STFT implementations
+   - Sparse attention patterns
+   - Cache compression techniques
+
+3. **Application Domains**
+   - Long-context language modeling
+   - Document processing
+   - Multi-modal attention
+
 # License
 MIT
